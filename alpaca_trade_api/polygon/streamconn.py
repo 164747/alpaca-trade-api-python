@@ -10,6 +10,8 @@ from .entity import (
 )
 from alpaca_trade_api.common import get_polygon_credentials, URL
 import logging
+from polygon.websocket import pm
+
 
 
 class StreamConn(object):
@@ -192,7 +194,7 @@ class StreamConn(object):
             await self._ws.close()
         self._ws = None
 
-    def _cast(self, subject, data):
+    def _cast_old(self, subject, data):
         if subject == 'T':
             return Trade({trade_mapping[k]: v for k,
                           v in data.items() if k in trade_mapping})
@@ -203,6 +205,17 @@ class StreamConn(object):
             return Agg({agg_mapping[k]: v for k,
                         v in data.items() if k in agg_mapping})
         return Entity(data)
+
+    def _cast(self, subject, data):
+        if subject == 'T':
+            return pm.Trade(**data)
+        if subject == 'Q':
+            return pm.Quote(**data)
+        if subject == 'AM' or subject == 'A':
+            return pm.Bar(**data)
+        return data
+        #raise NotImplementedError(data)
+        #return Entity(data)
 
     async def _dispatch(self, msg):
         channel = msg.get('ev')
