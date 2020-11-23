@@ -207,6 +207,7 @@ class StreamConn(object):
         return Entity(data)
 
     def _cast(self, subject, data):
+        print(data)
         if subject == 'T':
             return pm.Trade(**data)
         if subject == 'Q':
