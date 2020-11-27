@@ -6,7 +6,7 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
-
+import alpaca_trade_api as tradeapi
 
 
 class OrderTimeInFore(Enum):
@@ -26,7 +26,18 @@ class StopLoss(BaseModel):
     limit_price: float
 
 
-class OrderBase(BaseModel):
+class AplacaModel(BaseModel):
+    class Meta:
+        client: tradeapi.REST = None
+
+    @property
+    def client(self) -> tradeapi.REST:
+        c = self.Meta.client is not None
+        assert c is not None
+        return c
+
+
+class OrderBase(AplacaModel):
     client_order_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     qty: int
     time_in_force: OrderTimeInFore = OrderTimeInFore.DAY

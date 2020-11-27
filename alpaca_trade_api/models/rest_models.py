@@ -54,3 +54,115 @@ class Order(OrderPlace):
     @property
     def unmatched_qty(self) -> int:
         return self.qty - self.filled_qty
+
+    def place_order(self, order_place: OrderPlace) -> Order:
+        d = self.client.post('/order', data=order_place.dict())
+        return Order(**d)
+
+    def update_order(self, order_replace: OrderReplace) -> Order:
+        d = self.client.patch(f'/order/{self.order_id}', data=order_replace.dict())
+        return Order(**d)
+
+    @classmethod
+    def get(cls: Order, status: str = None,
+            limit: int = None,
+            after: str = None,
+            until: str = None,
+            direction: str = None,
+            params=None,
+            nested: bool = None) -> typing.List[Order]:
+        params = locals()
+        params.pop('cls')
+        return [Order(**x) for x in Order.Meta.client.get('/orders', params)]
+
+
+class Account(aux.AplacaModel):
+    account_blocked: bool
+    account_number: str
+    buying_power: float
+    cash: float
+    created_at: datetime.datetime
+    currency: str
+    daytrade_count: int
+    daytrading_buying_power: float
+    equity: float
+    id: str
+    initial_margin: float
+    last_equity: float
+    last_maintenance_margin: float
+    long_market_value: float
+    maintenance_margin: float
+    multiplier: float
+    pattern_day_trader: bool
+    portfolio_value: float
+    regt_buying_power: float
+    short_market_value: float
+    shorting_enabled: bool
+    sma: float
+    status: str
+    trade_suspended_by_user: bool
+    trading_blocked: bool
+    transfers_blocked: bool
+
+    @classmethod
+    def get(cls: Account) -> Account:
+        return Account(**Account.Meta.client.get('/account'))
+
+
+class Position(aux.AplacaModel):
+    asset_id: str
+    symbol: str
+    exchange: str
+    asset_class: str
+    avg_entry_price: float
+    qty: int
+    side: str
+    market_value: float
+    cost_basis: float
+    unrealized_pl: float
+    unrealized_plpc: float
+    unrealized_intraday_pl: float
+    unrealized_intraday_plpc: float
+    current_price: float
+    lastday_price: float
+    change_today: float
+
+    @classmethod
+    def get(cls: Position) -> typing.List[Position]:
+        return [Position(**x) for x in cls.Meta.client.get('/positions')]
+
+
+class Activity(aux.AplacaModel):
+    activity_type: str
+    id: str
+
+    @classmethod
+    def get(cls: Activity, date: str = None, until: str = None, after: str = None, direction: str = 'desc',
+            page_size: int = 100, page_token: str = None) -> typing.List[typing.Union[TradeActivity, NonTradeActivity]]:
+        d = locals()
+        d.pop('cls')
+        dl = Activity.Meta.client.get('/account/activities', d)
+        return [TradeActivity(**d) if d['activity_type']=='FILL' else NonTradeActivity(**d) for d in dl]
+
+    @property
+    def is_trade(self) -> bool:
+        return isinstance(self, TradeActivity)
+
+class TradeActivity(Activity):
+    cum_qty: int
+    leaves_qty: int
+    price: float
+    qty: int
+    side: OrderSide
+    symbol: str
+    transaction_time: datetime.datetime
+    order_id: str
+    type: str
+
+
+class NonTradeActivity(Activity):
+    date: datetime.date
+    net_amount: float
+    symbol: typing.Optional[str] = None
+    qty: typing.Optional[int] = None
+    per_share_amount: typing.Optional[float] = None
