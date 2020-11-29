@@ -4,6 +4,7 @@ import datetime
 import typing
 from enum import Enum
 
+import pytz
 from pydantic import Field
 
 from alpaca_trade_api.models import aux
@@ -55,8 +56,9 @@ class Order(OrderPlace):
     def unmatched_qty(self) -> int:
         return self.qty - self.filled_qty
 
-    def place_order(self, order_place: OrderPlace) -> Order:
-        d = self.client.post('/order', data=order_place.dict())
+    @classmethod
+    def place_order(cls : Order, order_place: OrderPlace) -> Order:
+        d = cls.Meta.client.post('/order', data=order_place.dict())
         return Order(**d)
 
     def update_order(self, order_replace: OrderReplace) -> Order:
@@ -142,11 +144,12 @@ class Activity(aux.AplacaModel):
         d = locals()
         d.pop('cls')
         dl = Activity.Meta.client.get('/account/activities', d)
-        return [TradeActivity(**d) if d['activity_type']=='FILL' else NonTradeActivity(**d) for d in dl]
+        return [TradeActivity(**d) if d['activity_type'] == 'FILL' else NonTradeActivity(**d) for d in dl]
 
     @property
     def is_trade(self) -> bool:
         return isinstance(self, TradeActivity)
+
 
 class TradeActivity(Activity):
     cum_qty: int
@@ -166,3 +169,26 @@ class NonTradeActivity(Activity):
     symbol: typing.Optional[str] = None
     qty: typing.Optional[int] = None
     per_share_amount: typing.Optional[float] = None
+
+class MarketClock(aux.AplacaModel):
+    timestamp: datetime.datetime
+    is_open : bool
+    next_open: datetime.datetime
+    next_close: datetime.datetime
+
+    @classmethod
+    def get(cls: MarketClock) -> MarketClock:
+        return MarketClock(**cls.Meta.client.get('/clock'))
+
+    @property
+    def opens_in(self) -> datetime.timedelta:
+        return self.next_open - datetime.datetime.now(tz=pytz.UTC)
+
+    @property
+    def closes_in(self) -> datetime.timedelta:
+        return self.next_close - datetime.datetime.now(tz=pytz.UTC)
+
+    @property
+    def age(self) -> datetime.timedelta:
+        return datetime.datetime.now(tz=pytz.UTC) - self.timestamp
+

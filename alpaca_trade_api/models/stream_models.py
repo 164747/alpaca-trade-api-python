@@ -30,6 +30,15 @@ class OrderEventActive(OrderEventBase):
     def is_active(self) -> bool:
         return True
 
+    @property
+    def fill_event(self) -> bool:
+        return self is self.PARTIAL_FILL
+
+    @property
+    def is_new(self) -> bool:
+        return False
+
+
 
 class OrderEventInActive(OrderEventBase):
     FILL = 'fill'
@@ -44,6 +53,14 @@ class OrderEventInActive(OrderEventBase):
     @property
     def is_active(self) -> bool:
         return False
+
+    @property
+    def is_new(self) -> bool:
+        return False
+
+    @property
+    def fill_event(self) -> bool:
+        return self is self.FILL
 
 
 class TradeBase(BaseModel):
