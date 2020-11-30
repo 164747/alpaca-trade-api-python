@@ -12,6 +12,9 @@ from . import polygon
 from .entity import Trade, Quote, Agg
 import logging
 from typing import List, Callable
+from polygon.websocket import pm as psm
+from alpaca_trade_api.models import stream_models as asm
+from alpaca_trade_api.models import rest_models as arm
 
 
 class _StreamConn(object):
@@ -132,21 +135,18 @@ class _StreamConn(object):
             await self._ws.close()
             self._ws = None
 
-    def _cast(self, channel, msg):
+    def _cast(self, channel, data):
         if channel == 'account_updates':
-            return Account(msg)
-        if channel.startswith('T.'):
-            return Trade({trade_mapping[k]: v for k,
-                          v in msg.items() if k in trade_mapping})
-        if channel.startswith('Q.'):
-            return Quote({quote_mapping[k]: v for k,
-                          v in msg.items() if k in quote_mapping})
-        if channel.startswith('A.') or channel.startswith('AM.'):
-            # to be compatible with REST Agg
-            msg['t'] = msg['s']
-            return Agg({agg_mapping[k]: v for k,
-                        v in msg.items() if k in agg_mapping})
-        return Entity(msg)
+            return arm.Account(**data)
+        if channel == 'T':
+            return psm.Trade(**data)
+        if channel == 'Q':
+            return psm.Quote(**data)
+        if channel == 'AM' or channel == 'A':
+            return psm.Bar(**data)
+        if channel == 'trade_updates':
+            return asm.TradeBase(**data)
+        return data
 
     async def _dispatch(self, channel, msg):
         for pat, handler in self._handlers.items():
@@ -326,7 +326,7 @@ class StreamConn(object):
             if self._data_stream == 'polygon':
                 self.data_ws = polygon.StreamConn(
                     self._key_id + '-staging' if 'staging' in
-                    self._base_url else self._key_id)
+                                                 self._base_url else self._key_id)
             else:
                 self.data_ws = _StreamConn(self._key_id,
                                            self._secret_key,

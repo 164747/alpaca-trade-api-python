@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import typing
 import uuid
+from decimal import Decimal
 from enum import Enum
 
 from pydantic import BaseModel, Field
@@ -41,5 +42,5 @@ class OrderBase(AplacaModel):
     client_order_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     qty: int
     time_in_force: OrderTimeInFore = OrderTimeInFore.DAY
-    limit_price: typing.Optional[float]
-    stop_price: typing.Optional[float] = None
+    limit_price: typing.Union[float, Decimal, None] = None
+    stop_price: typing.Union[float, Decimal, None] = None
