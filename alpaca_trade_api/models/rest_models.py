@@ -144,6 +144,9 @@ class Position(aux.AplacaModel):
     def get(cls: Position) -> typing.List[Position]:
         return [Position(**x) for x in cls.Meta.client.get('/positions')]
 
+    @property
+    def net_position(self) -> int:
+        return self.qty
 
 class Activity(aux.AplacaModel):
     activity_type: str
