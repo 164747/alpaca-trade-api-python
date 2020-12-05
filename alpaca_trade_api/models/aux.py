@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import datetime
+import pytz
 import typing
 import uuid
 from decimal import Decimal
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr
 
 import alpaca_trade_api as tradeapi
 
@@ -44,3 +46,9 @@ class OrderBase(AplacaModel):
     time_in_force: OrderTimeInFore = OrderTimeInFore.DAY
     limit_price: typing.Union[float, Decimal, None] = None
     stop_price: typing.Union[float, Decimal, None] = None
+
+    _created_at: datetime.datetime = PrivateAttr(default_factory=lambda: datetime.datetime.now(tz=pytz.UTC))
+
+    @property
+    def age(self) -> datetime.timedelta:
+        return datetime.datetime.now(tz=pytz.UTC) - self._created_at

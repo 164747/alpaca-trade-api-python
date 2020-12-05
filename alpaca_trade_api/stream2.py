@@ -1,20 +1,19 @@
 import asyncio
 import json
+import logging
 import os
 import re
 import traceback
 from asyncio import CancelledError
+from typing import List, Callable
 
 import websockets
-from .common import get_base_url, get_data_url, get_credentials, URL
-from .entity import Account, Entity, trade_mapping, agg_mapping, quote_mapping
-from . import polygon
-from .entity import Trade, Quote, Agg
-import logging
-from typing import List, Callable
-from polygon.websocket import pm as psm
-from alpaca_trade_api.models import stream_models as asm
+
 from alpaca_trade_api.models import rest_models as arm
+from alpaca_trade_api.models import stream_models as asm
+from polygon.websocket import pm as psm
+from . import polygon
+from .common import get_base_url, get_data_url, get_credentials, URL
 
 
 class _StreamConn(object):

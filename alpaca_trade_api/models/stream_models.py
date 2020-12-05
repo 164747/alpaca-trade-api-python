@@ -9,98 +9,25 @@ from pydantic import BaseModel, Field
 from alpaca_trade_api.models.rest_models import Order
 
 
-class OrderEventBase(Enum):
-
-    # @property
-    # def is_active(self) -> bool:
-    #    raise NotImplementedError
-
-    # @property
-    # def is_pending(self) -> bool:
-    #    return False
-
-    # @property
-    # def fill_event(self) -> bool:
-    #   return False
-
-    @property
-    def is_new(self) -> bool:
-        return False
-
-    @property
-    def is_rejected(self) -> bool:
-        return False
 
 
-class OrderEventPending(OrderEventBase):
-    PENDING_NEW = 'pending_new'
-    PENDING_CANCEL = 'pending_cancel'
-    PENDING_REPLACE = 'pending_replace'
-
-
-class OrderEventActive(OrderEventBase):
-    NEW = 'new'
-    PARTIAL_FILL = 'partial_fill'
-    DONE_FOR_DAY = 'done_for_day'
-    PENDING_NEW = 'pending_new'
-    REPLACE_REJECTED = 'order_replace_rejected'
-    CANCEL_REJECTED = 'order_cancel_rejected'
-    PENDING_CANCEL = 'pending_cancel'
-    PENDING_REPLACE = 'pending_replace'
-
-    @property
-    def is_active(self) -> bool:
-        return True
-
-    @property
-    def fill_event(self) -> bool:
-        return self is self.PARTIAL_FILL
-
-    @property
-    def is_new(self) -> bool:
-        return False
-
-
-class OrderEventInActive(OrderEventBase):
-    FILL = 'fill'
-    CANCELED = 'canceled'
-    EXPIRED = 'expired'
-    REPLACED = 'replaced'
-    REJECTED = 'rejected'
-    STOPPED = 'stopped'
-    CALCULATED = 'calculated'
-    SUSPENDED = 'suspended'
-
-    @property
-    def is_active(self) -> bool:
-        return False
-
-    @property
-    def is_new(self) -> bool:
-        return False
-
-    @property
-    def fill_event(self) -> bool:
-        return self is self.FILL
-
-
-class OrderEvent(OrderEventBase):
-    NEW = 'new', False, True
-    PENDING_NEW = 'pending_new', True, False
-    PENDING_CANCEL = 'pending_cancel', True, False
-    PENDING_REPLACE = 'pending_replace', True, False
-    PARTIAL_FILL = 'partial_fill', False, True
-    DONE_FOR_DAY = 'done_for_day', False, False
-    REPLACE_REJECTED = 'order_replace_rejected', False, False
-    CANCEL_REJECTED = 'order_cancel_rejected', False, False
-    FILL = 'fill', False, False
-    CANCELED = 'canceled', False, False
-    EXPIRED = 'expired', False, False
-    REPLACED = 'replaced', False, False
-    REJECTED = 'rejected', False, False
-    STOPPED = 'stopped', False, False
-    CALCULATED = 'calculated', False, False
-    SUSPENDED = 'suspended', False, False
+class OrderEvent(Enum):
+    NEW = 'new', False, True, False
+    PENDING_NEW = 'pending_new', True, False, False
+    PENDING_CANCEL = 'pending_cancel', True, False, False
+    PENDING_REPLACE = 'pending_replace', True, False, False
+    PARTIAL_FILL = 'partial_fill', False, True, False
+    DONE_FOR_DAY = 'done_for_day', False, False, False
+    REPLACE_REJECTED = 'order_replace_rejected', False, False, True
+    CANCEL_REJECTED = 'order_cancel_rejected', False, False, True
+    FILL = 'fill', False, False, False
+    CANCELED = 'canceled', False, False, False
+    EXPIRED = 'expired', False, False, False
+    REPLACED = 'replaced', False, False, False
+    REJECTED = 'rejected', False, False, True
+    STOPPED = 'stopped', False, False, False
+    CALCULATED = 'calculated', False, False, False
+    SUSPENDED = 'suspended', False, False, False
 
     def __new__(cls, *args, **kwds):
         value = args[0]
@@ -108,10 +35,11 @@ class OrderEvent(OrderEventBase):
         obj._value_ = value
         return obj
 
-    def __init__(self, text: str, is_pending: bool, is_active: bool):
+    def __init__(self, text: str, is_pending: bool, is_active: bool, is_rejected : bool):
         self.text = text
         self.is_pending = is_pending
         self.is_active = is_active
+        self.is_rejected = is_rejected
 
     @property
     def fill_event(self) -> bool:
@@ -123,7 +51,7 @@ class OrderEvent(OrderEventBase):
 
 
 class TradeBase(BaseModel):
-    event: typing.Union[OrderEventActive, OrderEventInActive]
+    event: OrderEvent
     price: typing.Optional[float] = None
     utc: typing.Optional[datetime.datetime] = Field(alias='timestamp', default=None)
     position_qty: typing.Optional[int] = None

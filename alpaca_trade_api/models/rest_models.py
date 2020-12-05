@@ -7,9 +7,10 @@ from decimal import Decimal
 from enum import Enum
 
 import pytz
-from pydantic import Field
+from pydantic import Field, PrivateAttr
 
 from alpaca_trade_api.models import aux
+from alpaca_trade_api.rest import APIError
 
 
 class OrderSide(Enum):
@@ -34,7 +35,6 @@ class OrderPlace(aux.OrderBase):
     stop_loss: typing.Optional[aux.StopLoss] = None
 
 
-
 class Order(OrderPlace):
     order_id: str = Field(alias='id')
     created_at: datetime.datetime
@@ -52,29 +52,50 @@ class Order(OrderPlace):
     status: str
     legs: typing.Optional[typing.List[Order]] = None
     hwm: typing.Optional[float] = None
+    _pending_delete: bool = PrivateAttr(default=False)
+    _pending_replace: bool = PrivateAttr(default=False)
+    _change_request: typing.Optional[OrderReplace] = PrivateAttr(default=None)
+    _delete_req_at: typing.Optional[datetime.datetime] = PrivateAttr(default=None)
 
     @property
     def unmatched_qty(self) -> int:
         return self.qty - self.filled_qty
 
     @classmethod
-    def place_order(cls: Order, order_place: OrderPlace) -> Order:
+    def place_order(cls: Order, order_place: OrderPlace):
         data = json.loads(order_place.json(exclude_none=True, by_alias=True))
-        d = cls.Meta.client.post('/orders', data=data)
-        return Order(**d)
+        cls.Meta.client.post('/orders', data=data)
 
-    def update_order(self, order_replace: OrderReplace) -> Order:
+    def update_order(self, order_replace: OrderReplace):
         data = json.loads(order_replace.json(exclude_none=True, by_alias=True))
-        d = self.Meta.client.patch(f'/orders/{self.order_id}', data=data)
-        return Order(**d)
+        try:
+            self.Meta.client.patch(f'/orders/{self.order_id}', data=data)
+            self._change_request = order_replace
+            self._pending_replace = True
+        except APIError as e:
+            if e.status_code != 422:
+                raise
 
     def delete(self):
         self.Meta.client.delete(f'/orders/{self.order_id}')
+        self._pending_delete = True
+        self._delete_req_at = datetime.datetime.now(tz=pytz.UTC)
 
     @staticmethod
     def delete_all():
         Order.Meta.client.delete(f'/orders')
 
+    @property
+    def pending_action(self) -> bool:
+        return self._pending_delete or self._pending_replace
+
+    @property
+    def pending_age(self) -> datetime.timedelta:
+        if self._pending_replace:
+            return self._change_request.age
+        if self._pending_delete:
+            return datetime.datetime.now(tz=pytz.UTC) - self._delete_req_at
+        return datetime.timedelta(0)
 
     @classmethod
     def get(cls: Order, status: str = None,
@@ -90,6 +111,7 @@ class Order(OrderPlace):
 
 
 Order.update_forward_refs()
+
 
 class Account(aux.AplacaModel):
     account_blocked: bool
@@ -149,6 +171,7 @@ class Position(aux.AplacaModel):
     @property
     def net_position(self) -> int:
         return self.qty
+
 
 class Activity(aux.AplacaModel):
     activity_type: str
@@ -222,6 +245,6 @@ def __main():
     order = Order(**d)
     print(order)
 
+
 if __name__ == '__main__':
     __main()
-
