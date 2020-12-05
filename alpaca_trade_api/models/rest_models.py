@@ -34,6 +34,7 @@ class OrderPlace(aux.OrderBase):
     stop_loss: typing.Optional[aux.StopLoss] = None
 
 
+
 class Order(OrderPlace):
     order_id: str = Field(alias='id')
     created_at: datetime.datetime
@@ -60,18 +61,19 @@ class Order(OrderPlace):
     def place_order(cls: Order, order_place: OrderPlace) -> Order:
         data = json.loads(order_place.json(exclude_none=True, by_alias=True))
         d = cls.Meta.client.post('/orders', data=data)
-        print(d)
         return Order(**d)
 
     def update_order(self, order_replace: OrderReplace) -> Order:
         data = json.loads(order_replace.json(exclude_none=True, by_alias=True))
         d = self.Meta.client.patch(f'/orders/{self.order_id}', data=data)
-        print(d)
         return Order(**d)
 
     def delete(self):
-        d = self.Meta.client.delete(f'/orders/{self.order_id}')
-        print(d)
+        self.Meta.client.delete(f'/orders/{self.order_id}')
+
+    @staticmethod
+    def delete_all():
+        Order.Meta.client.delete(f'/orders')
 
 
     @classmethod
