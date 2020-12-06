@@ -17,6 +17,15 @@ class OrderSide(Enum):
     BUY = 'buy'
     SELL = 'sell'
 
+    @property
+    def is_sell(self) -> bool:
+        return self is OrderSide.SELL
+
+    @property
+    def is_buy(self) -> bool:
+        return self is OrderSide.BUY
+
+
 
 class OrderReplace(aux.OrderBase):
     trail: typing.Optional[float] = None

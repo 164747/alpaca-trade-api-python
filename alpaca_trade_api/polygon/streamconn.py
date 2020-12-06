@@ -1,18 +1,14 @@
 import asyncio
 import json
-import time
-import re
-import os
-import websockets
-from .entity import (
-    Quote, Trade, Agg, Entity,
-    trade_mapping, quote_mapping, agg_mapping
-)
-from alpaca_trade_api.common import get_polygon_credentials, URL
 import logging
+import os
+import re
+
+import time
+import websockets
+
+from alpaca_trade_api.common import get_polygon_credentials, URL
 from polygon.websocket import pm as psm
-
-
 
 
 class StreamConn(object):
