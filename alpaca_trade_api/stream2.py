@@ -81,7 +81,7 @@ class _StreamConn(object):
                 if stream is not None:
                     await self._dispatch(stream, msg)
         except websockets.WebSocketException as wse:
-            logging.warn(wse)
+            logging.warning(wse)
             await self.close()
             asyncio.ensure_future(self._ensure_ws())
 
@@ -96,7 +96,7 @@ class _StreamConn(object):
                     await self.subscribe(self._streams)
                 break
             except websockets.WebSocketException as wse:
-                logging.warn(wse)
+                logging.warning(wse)
                 self._ws = None
                 self._retries += 1
                 await asyncio.sleep(self._retry_wait * self._retry)
@@ -227,7 +227,7 @@ class StreamConn(object):
         try:
             self.loop = asyncio.get_event_loop()
         except websockets.WebSocketException as wse:
-            logging.warn(wse)
+            logging.warning(wse)
             self.loop = asyncio.new_event_loop()
             asyncio.set_event_loop(self.loop)
 
