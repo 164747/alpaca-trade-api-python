@@ -134,7 +134,8 @@ class _StreamConn(object):
             await self._ws.close()
             self._ws = None
 
-    def _cast(self, channel, data):
+    @staticmethod
+    def _cast(channel, data):
         if channel == 'account_updates':
             return arm.Account(**data)
         if channel == 'T':

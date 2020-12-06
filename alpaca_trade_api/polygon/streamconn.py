@@ -191,7 +191,8 @@ class StreamConn(object):
             await self._ws.close()
         self._ws = None
 
-    def _cast(self, subject, data):
+    @staticmethod
+    def _cast(subject, data):
         if subject == 'T':
             return psm.Trade(**data)
         if subject == 'Q':
@@ -199,8 +200,6 @@ class StreamConn(object):
         if subject == 'AM' or subject == 'A':
             return psm.Bar(**data)
         return data
-        #raise NotImplementedError(data)
-        #return Entity(data)
 
     async def _dispatch(self, msg):
         channel = msg.get('ev')
