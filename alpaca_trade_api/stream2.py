@@ -11,7 +11,7 @@ import websockets
 
 from alpaca_trade_api.models import rest_models as arm
 from alpaca_trade_api.models import stream_models as asm
-from polygon.websocket import pm as psm
+from polygon.websocket import stream_models as psm
 from . import polygon
 from .common import get_base_url, get_data_url, get_credentials, URL
 

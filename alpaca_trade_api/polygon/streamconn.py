@@ -8,7 +8,7 @@ import time
 import websockets
 
 from alpaca_trade_api.common import get_polygon_credentials, URL
-from polygon.websocket import pm as psm
+from polygon.websocket import stream_models as psm
 
 
 class StreamConn(object):
