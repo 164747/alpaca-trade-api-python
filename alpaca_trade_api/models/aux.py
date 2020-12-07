@@ -49,6 +49,10 @@ class OrderBase(AplacaModel):
 
     _created_at: datetime.datetime = PrivateAttr(default_factory=lambda: datetime.datetime.now(tz=pytz.UTC))
 
+    def __str__(self):
+        return f'[{self.qty}] @ {self.limit_price} {self.age}'
+
+
     @property
     def age(self) -> datetime.timedelta:
         return datetime.datetime.now(tz=pytz.UTC) - self._created_at

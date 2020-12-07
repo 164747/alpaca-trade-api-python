@@ -25,6 +25,12 @@ class OrderSide(Enum):
     def is_buy(self) -> bool:
         return self is OrderSide.BUY
 
+    @property
+    def other(self) -> OrderSide:
+        if self.is_buy:
+            return OrderSide.SELL
+        else:
+            return OrderSide.BUY
 
 
 class OrderReplace(aux.OrderBase):
@@ -42,6 +48,9 @@ class OrderPlace(aux.OrderBase):
     trail_percent: typing.Union[float, Decimal, None] = None
     order_class: aux.OrderClass = aux.OrderClass.SIMPLE
     stop_loss: typing.Optional[aux.StopLoss] = None
+
+    def __str__(self):
+        return f'{self.symbol} {self.side.value} [{self.qty}]@ {self.limit_price} {self.age}'
 
 
 class Order(OrderPlace):
@@ -65,6 +74,9 @@ class Order(OrderPlace):
     _pending_replace: bool = PrivateAttr(default=False)
     _change_request: typing.Optional[OrderReplace] = PrivateAttr(default=None)
     _delete_req_at: typing.Optional[datetime.datetime] = PrivateAttr(default=None)
+
+    def __str__(self):
+        return f'{self.symbol} {self.side.value} [{self.qty}]@ {self.limit_price} {self.age} -> {self._change_request}'
 
     @property
     def unmatched_qty(self) -> int:
