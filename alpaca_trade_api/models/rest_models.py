@@ -90,12 +90,25 @@ class Order(OrderPlace):
     def update_order(self, order_replace: OrderReplace):
         data = json.loads(order_replace.json(exclude_none=True, by_alias=True))
         try:
-            self.Meta.client.patch(f'/orders/{self.order_id}', data=data)
             self._change_request = order_replace
             self._pending_replace = True
+            self.Meta.client.patch(f'/orders/{self.order_id}', data=data)
         except APIError as e:
             if e.status_code != 422:
                 raise
+
+
+    def update_from_replace(self, new_order_id : str) -> OrderReplace:
+        replace_order = self._change_request
+        assert replace_order is not None
+        self.replaced_by = self.order_id
+        self._change_request = None
+        self._pending_replace = False
+        self.order_id = new_order_id
+        self.qty = replace_order.qty
+        self.client_order_id = replace_order.client_order_id
+        self.limit_price = replace_order.limit_price
+        return replace_order
 
     def delete(self):
         self.Meta.client.delete(f'/orders/{self.order_id}')
