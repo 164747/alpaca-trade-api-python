@@ -1,6 +1,7 @@
 import logging
 import os
-
+import aiohttp
+import asyncio
 import requests
 import time
 from requests.exceptions import HTTPError
@@ -62,7 +63,8 @@ class REST(object):
             key_id, secret_key, oauth)
         self._base_url: URL = URL(base_url or get_base_url())
         self._api_version = get_api_version(api_version)
-        self._session = requests.Session()
+        #self._session = requests.Session()
+        self._session = aiohttp.ClientSession()
         self._retry = int(os.environ.get('APCA_RETRY_MAX', 3))
         self._retry_wait = int(os.environ.get('APCA_RETRY_WAIT', 3))
         self._retry_codes = [int(o) for o in os.environ.get(
@@ -70,7 +72,7 @@ class REST(object):
         self.polygon = polygon.REST(
             self._key_id, 'staging' in self._base_url)
 
-    def _request(self,
+    async def _request(self,
                  method,
                  path,
                  data=None,
@@ -105,18 +107,19 @@ class REST(object):
             retry = 0
         while retry >= 0:
             try:
-                return self._one_request(method, url, opts, retry)
+                return await self._one_request(method, url, opts, retry)
             except RetryException:
                 retry_wait = self._retry_wait
                 logger.warning(
                     'sleep {} seconds and retrying {} '
                     '{} more time(s)...'.format(
                         retry_wait, url, retry))
-                time.sleep(retry_wait)
+                await asyncio.sleep(retry_wait)
+                #time.sleep(retry_wait)
                 retry -= 1
                 continue
 
-    def _one_request(self, method: str, url: URL, opts: dict, retry: int):
+    async def _one_request(self, method: str, url: URL, opts: dict, retry: int):
         """
         Perform one request, possibly raising RetryException in the case
         the response is 429. Otherwise, if error text contain "code" string,
@@ -124,37 +127,38 @@ class REST(object):
         Returns the body json in the 200 status.
         """
         retry_codes = self._retry_codes
-        resp = self._session.request(method, url, **opts)
+        resp = await self._session.request(method, url, timeout=None, **opts)
         try:
             resp.raise_for_status()
-        except HTTPError as http_error:
+        #except HTTPError as http_error:
+        except aiohttp.ClientError as http_error:
             # retry if we hit Rate Limit
-            if resp.status_code in retry_codes and retry > 0:
+            if resp.status in retry_codes and retry > 0:
                 raise RetryException()
             if 'code' in resp.text:
-                error = resp.json()
+                error = await resp.json()
                 if 'code' in error:
                     raise APIError(error, http_error)
             else:
                 raise
         if resp.text != '':
-            return resp.json()
+            return await resp.json()
         return None
 
-    def get(self, path, data=None):
-        return self._request('GET', path, data)
+    async def get(self, path, data=None):
+        return await self._request('GET', path, data)
 
-    def post(self, path, data=None):
-        return self._request('POST', path, data)
+    async def post(self, path, data=None):
+        return await self._request('POST', path, data)
 
-    def put(self, path, data=None):
-        return self._request('PUT', path, data)
+    async def put(self, path, data=None):
+        return await self._request('PUT', path, data)
 
-    def patch(self, path, data=None):
-        return self._request('PATCH', path, data)
+    async def patch(self, path, data=None):
+        return await self._request('PATCH', path, data)
 
-    def delete(self, path, data=None):
-        return self._request('DELETE', path, data)
+    async def delete(self, path, data=None):
+        return await self._request('DELETE', path, data)
 
     def __enter__(self):
         return self

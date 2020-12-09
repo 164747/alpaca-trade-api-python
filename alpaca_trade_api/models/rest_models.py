@@ -72,6 +72,8 @@ class Order(OrderPlace):
     hwm: typing.Optional[float] = None
     _pending_delete: bool = PrivateAttr(default=False)
     _pending_replace: bool = PrivateAttr(default=False)
+    _pending_place: bool = PrivateAttr(default=False)
+    _replacing_order: typing.Optional[Order] = PrivateAttr(default=None)
     _change_request: typing.Optional[OrderReplace] = PrivateAttr(default=None)
     _delete_req_at: typing.Optional[datetime.datetime] = PrivateAttr(default=None)
 
@@ -83,45 +85,41 @@ class Order(OrderPlace):
         return self.qty - self.filled_qty
 
     @classmethod
-    def place_order(cls: Order, order_place: OrderPlace):
+    async def place_order(cls: Order, order_place: OrderPlace) -> Order:
         data = json.loads(order_place.json(exclude_none=True, by_alias=True))
-        cls.Meta.client.post('/orders', data=data)
+        d = await cls.Meta.client.post('/orders', data=data)
+        order = Order(**d)
+        order._pending_place = True
+        return order
 
-    def update_order(self, order_replace: OrderReplace):
+
+    async def update_order(self, order_replace: OrderReplace):
         data = json.loads(order_replace.json(exclude_none=True, by_alias=True))
         try:
             self._change_request = order_replace
             self._pending_replace = True
-            self.Meta.client.patch(f'/orders/{self.order_id}', data=data)
+            d = await self.Meta.client.patch(f'/orders/{self.order_id}', data=data)
+            self._replacing_order = Order(**d)
         except APIError as e:
             if e.status_code != 422:
                 raise
 
+    @property
+    def replacing_order(self) -> typing.Optional[Order]:
+        return self._replacing_order
 
-    def update_from_replace(self, new_order_id : str) -> OrderReplace:
-        replace_order = self._change_request
-        assert replace_order is not None
-        self.replaced_by = self.order_id
-        self._change_request = None
-        self._pending_replace = False
-        self.order_id = new_order_id
-        self.qty = replace_order.qty
-        self.client_order_id = replace_order.client_order_id
-        self.limit_price = replace_order.limit_price
-        return replace_order
-
-    def delete(self):
-        self.Meta.client.delete(f'/orders/{self.order_id}')
+    async def delete(self):
         self._pending_delete = True
         self._delete_req_at = datetime.datetime.now(tz=pytz.UTC)
+        await self.Meta.client.delete(f'/orders/{self.order_id}')
 
     @staticmethod
-    def delete_all():
-        Order.Meta.client.delete(f'/orders')
+    async def delete_all():
+        await Order.Meta.client.delete('/orders')
 
     @property
     def pending_action(self) -> bool:
-        return self._pending_delete or self._pending_replace
+        return self._pending_delete or self._pending_replace or self._pending_place
 
     @property
     def pending_age(self) -> datetime.timedelta:
@@ -129,10 +127,12 @@ class Order(OrderPlace):
             return self._change_request.age
         if self._pending_delete:
             return datetime.datetime.now(tz=pytz.UTC) - self._delete_req_at
+        if self._pending_place:
+            return self.age
         return datetime.timedelta(0)
 
     @classmethod
-    def get(cls: Order, status: str = None,
+    async def get(cls: Order, status: str = None,
             limit: int = None,
             after: str = None,
             until: str = None,
@@ -141,7 +141,7 @@ class Order(OrderPlace):
             nested: bool = None) -> typing.List[Order]:
         params = locals()
         params.pop('cls')
-        return [Order(**x) for x in Order.Meta.client.get('/orders', params)]
+        return [Order(**x) for x in await Order.Meta.client.get('/orders', params)]
 
 
 Order.update_forward_refs()
@@ -176,8 +176,8 @@ class Account(aux.AplacaModel):
     transfers_blocked: bool
 
     @classmethod
-    def get(cls: Account) -> Account:
-        return Account(**Account.Meta.client.get('/account'))
+    async def get(cls: Account) -> Account:
+        return Account(** await Account.Meta.client.get('/account'))
 
 
 class Position(aux.AplacaModel):
@@ -199,8 +199,9 @@ class Position(aux.AplacaModel):
     change_today: float
 
     @classmethod
-    def get(cls: Position) -> typing.List[Position]:
-        return [Position(**x) for x in cls.Meta.client.get('/positions')]
+    async def get(cls: Position) -> typing.List[Position]:
+        dl = await cls.Meta.client.get('/positions')
+        return [Position(**x) for x in dl]
 
     @property
     def net_position(self) -> int:
@@ -212,11 +213,11 @@ class Activity(aux.AplacaModel):
     id: str
 
     @classmethod
-    def get(cls: Activity, date: str = None, until: str = None, after: str = None, direction: str = 'desc',
+    async def get(cls: Activity, date: str = None, until: str = None, after: str = None, direction: str = 'desc',
             page_size: int = 100, page_token: str = None) -> typing.List[typing.Union[TradeActivity, NonTradeActivity]]:
         d = locals()
         d.pop('cls')
-        dl = Activity.Meta.client.get('/account/activities', d)
+        dl = await Activity.Meta.client.get('/account/activities', d)
         return [TradeActivity(**d) if d['activity_type'] == 'FILL' else NonTradeActivity(**d) for d in dl]
 
     @property
@@ -251,8 +252,8 @@ class MarketClock(aux.AplacaModel):
     next_close: datetime.datetime
 
     @classmethod
-    def get(cls: MarketClock) -> MarketClock:
-        return MarketClock(**cls.Meta.client.get('/clock'))
+    async def get(cls: MarketClock) -> MarketClock:
+        return MarketClock(** await cls.Meta.client.get('/clock'))
 
     @property
     def opens_in(self) -> datetime.timedelta:
