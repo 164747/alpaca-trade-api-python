@@ -1,10 +1,9 @@
+import asyncio
+import json
 import logging
 import os
+
 import aiohttp
-import asyncio
-import requests
-import time
-from requests.exceptions import HTTPError
 
 from . import polygon
 from .common import (
@@ -25,7 +24,7 @@ class APIError(Exception):
     error.status_code will have http status code.
     """
 
-    def __init__(self, error, http_error=None):
+    def __init__(self, error: dict, http_error: aiohttp.ClientResponseError):
         super().__init__(error['message'])
         self._error = error
         self._http_error = http_error
@@ -36,19 +35,7 @@ class APIError(Exception):
 
     @property
     def status_code(self):
-        http_error = self._http_error
-        if http_error is not None and hasattr(http_error, 'response'):
-            return http_error.response.status_code
-
-    @property
-    def request(self):
-        if self._http_error is not None:
-            return self._http_error.request
-
-    @property
-    def response(self):
-        if self._http_error is not None:
-            return self._http_error.response
+        return self._http_error.status
 
 
 class REST(object):
@@ -63,7 +50,7 @@ class REST(object):
             key_id, secret_key, oauth)
         self._base_url: URL = URL(base_url or get_base_url())
         self._api_version = get_api_version(api_version)
-        #self._session = requests.Session()
+        # self._session = requests.Session()
         self._session = aiohttp.ClientSession()
         self._retry = int(os.environ.get('APCA_RETRY_MAX', 3))
         self._retry_wait = int(os.environ.get('APCA_RETRY_WAIT', 3))
@@ -73,12 +60,12 @@ class REST(object):
             self._key_id, 'staging' in self._base_url)
 
     async def _request(self,
-                 method,
-                 path,
-                 data=None,
-                 base_url: URL = None,
-                 api_version: str = None
-                 ):
+                       method,
+                       path,
+                       data=None,
+                       base_url: URL = None,
+                       api_version: str = None
+                       ):
         logger.info(f'REQUEST {method} {path} {data}')
         base_url = base_url or self._base_url
         version = api_version if api_version else self._api_version
@@ -90,7 +77,7 @@ class REST(object):
             headers['APCA-API-KEY-ID'] = self._key_id
             headers['APCA-API-SECRET-KEY'] = self._secret_key
         opts = {
-            'headers':         headers,
+            'headers': headers,
             # Since we allow users to set endpoint URL via env var,
             # human error to put non-SSL endpoint could exploit
             # uncanny issues in non-GET request redirecting http->https.
@@ -115,7 +102,7 @@ class REST(object):
                     '{} more time(s)...'.format(
                         retry_wait, url, retry))
                 await asyncio.sleep(retry_wait)
-                #time.sleep(retry_wait)
+                # time.sleep(retry_wait)
                 retry -= 1
                 continue
 
@@ -128,20 +115,19 @@ class REST(object):
         """
         retry_codes = self._retry_codes
         resp = await self._session.request(method, url, timeout=None, **opts)
+        body = await resp.text()
         try:
             resp.raise_for_status()
-        #except HTTPError as http_error:
-        except aiohttp.ClientError as http_error:
-            # retry if we hit Rate Limit
+        # except HTTPError as http_error:
+        except aiohttp.ClientResponseError as http_error:
             if resp.status in retry_codes and retry > 0:
                 raise RetryException()
-            if 'code' in resp.text:
-                error = await resp.json()
-                if 'code' in error:
-                    raise APIError(error, http_error)
-            else:
-                raise
-        if resp.text != '':
+            try:
+                error_dict = json.loads(body)
+                raise APIError(error_dict, http_error)
+            except json.JSONDecodeError:
+                raise http_error
+        if await resp.text() != '':
             return await resp.json()
         return None
 

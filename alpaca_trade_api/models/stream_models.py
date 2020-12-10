@@ -61,6 +61,9 @@ class TradeBase(BaseModel):
     def has_qty(self) -> bool:
         return self.position_qty is not None
 
+    @property
+    def symbol(self) -> str:
+        return self.order.symbol
 
 def __main():
     oe = OrderEvent('fill')
