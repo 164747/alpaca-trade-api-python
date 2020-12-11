@@ -11,7 +11,7 @@ from pydantic import Field, PrivateAttr
 
 from alpaca_trade_api.models import aux
 from alpaca_trade_api.rest import APIError
-
+from sentry_sdk import capture_exception
 
 class OrderSide(Enum):
     BUY = 'buy'
@@ -101,6 +101,7 @@ class Order(OrderPlace):
             d = await self.Meta.client.patch(f'/orders/{self.order_id}', data=data)
             self._replacing_order = Order(**d)
         except APIError as e:
+            capture_exception(e)
             if e.status_code != 422:
                 raise
 
@@ -143,6 +144,16 @@ class Order(OrderPlace):
         params.pop('cls')
         return [Order(**x) for x in await Order.Meta.client.get('/orders', params)]
 
+    @property
+    def net_qty(self) -> int:
+        if self.side.is_sell:
+            return -self.qty
+        else:
+            return self.qty
+
+    @property
+    def net_equity(self) -> float:
+        return self.net_qty * self.limit_price
 
 Order.update_forward_refs()
 
