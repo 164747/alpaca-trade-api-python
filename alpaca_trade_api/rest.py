@@ -131,8 +131,11 @@ class REST(object):
             return await resp.json()
         return None
 
-    async def get(self, path, data=None):
-        return await self._request('GET', path, data)
+    async def get(self, path, data: dict = None):
+        d = data
+        if data is not None:
+            d = {k: v for k, v in data.items() if v is not None}
+        return await self._request('GET', path, d)
 
     async def post(self, path, data=None):
         return await self._request('POST', path, data)

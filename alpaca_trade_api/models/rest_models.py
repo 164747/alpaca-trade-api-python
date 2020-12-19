@@ -31,6 +31,35 @@ class OrderSide(Enum):
             return OrderSide.SELL
         else:
             return OrderSide.BUY
+    @property
+    def sign(self) -> float:
+        if self.is_buy:
+            return 1.0
+        else:
+            return -1.0
+
+class ExtendedOrderSide(Enum):
+    BUY = 'buy'
+    SELL = 'sell'
+    SHORT_SELL = 'sell_short'
+
+
+    @property
+    def is_sell(self) -> bool:
+        return self is self.SELL or self is self.SHORT_SELL
+
+    @property
+    def is_buy(self) -> bool:
+        return self is self.BUY
+
+    @property
+    def sign(self) -> float:
+        if self.is_buy:
+            return 1.0
+        else:
+            return -1.0
+
+
 
 
 class OrderReplace(aux.OrderBase):
@@ -218,18 +247,38 @@ class Position(aux.AplacaModel):
     def net_position(self) -> int:
         return self.qty
 
-
 class Activity(aux.AplacaModel):
     activity_type: str
     id: str
 
+    #@classmethod
+    #async def get(cls: Activity, date: str = None, until: str = None, after: str = None, direction: str = 'desc',
+    #              page_size: int = 100, page_token: str = None) -> typing.List[
+    #    typing.Union[TradeActivity, NonTradeActivity]]:
     @classmethod
     async def get(cls: Activity, date: str = None, until: str = None, after: str = None, direction: str = 'desc',
-            page_size: int = 100, page_token: str = None) -> typing.List[typing.Union[TradeActivity, NonTradeActivity]]:
+                  page_size: int = 100, page_token: str = None) -> typing.List[
+        typing.Union[TradeActivity, NonTradeActivity]]:
+
         d = locals()
         d.pop('cls')
-        dl = await Activity.Meta.client.get('/account/activities', d)
+        page_size_left = page_size
+        dl = []
+        tmp = []
+        first = True
+        url = '/account/activities'
+        if cls == TradeActivity:
+            url += '/FILL'
+        while (page_size_left > 0 and len(tmp)>0) or first:
+            d['page_size'] = min(page_size_left, 100)
+            if not first:
+                d['page_token'] = dl[-1]['id']
+            tmp = await Activity.Meta.client.get(url, d)
+            dl.extend(tmp)
+            page_size_left -= len(tmp)
+            first = False
         return [TradeActivity(**d) if d['activity_type'] == 'FILL' else NonTradeActivity(**d) for d in dl]
+
 
     @property
     def is_trade(self) -> bool:
@@ -241,11 +290,16 @@ class TradeActivity(Activity):
     leaves_qty: int
     price: float
     qty: int
-    side: OrderSide
+    side: ExtendedOrderSide
     symbol: str
     transaction_time: datetime.datetime
     order_id: str
     type: str
+
+    @classmethod
+    async def get(cls: Activity, date: str = None, until: str = None, after: str = None, direction: str = 'desc',
+                  page_size: int = 100, page_token: str = None) -> typing.List[TradeActivity]:
+        return await super().get(date, until, after, direction, page_size, page_token)
 
 
 class NonTradeActivity(Activity):
