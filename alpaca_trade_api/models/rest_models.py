@@ -107,7 +107,7 @@ class Order(OrderPlace):
     _delete_req_at: typing.Optional[datetime.datetime] = PrivateAttr(default=None)
 
     def __str__(self):
-        return f'{self.symbol} {self.side.value} [{self.qty}]@ {self.limit_price} {self.age} -> {self._change_request}'
+        return f'{self.symbol} {self.side.value} [{self.qty}]@ {self.limit_price} {self.age} {self.order_id} -> {self._change_request}'
 
     @property
     def unmatched_qty(self) -> int:

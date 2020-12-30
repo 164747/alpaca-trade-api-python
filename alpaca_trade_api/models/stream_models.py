@@ -58,6 +58,9 @@ class TradeBase(BaseModel):
     position_qty: typing.Optional[int] = None
     order: Order
 
+    def __str__(self):
+        return f'{self.order}  {self.event.value} {self.price} {str(self.utc)} {self.position_qty}'
+
     @property
     def has_qty(self) -> bool:
         return self.position_qty is not None
