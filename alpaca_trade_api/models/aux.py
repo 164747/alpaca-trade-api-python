@@ -10,6 +10,7 @@ from enum import Enum
 from pydantic import BaseModel, Field, PrivateAttr
 
 import alpaca_trade_api as tradeapi
+from alpaca_trade_api.common import URL
 
 
 class OrderTimeInFore(Enum):
@@ -31,13 +32,19 @@ class StopLoss(BaseModel):
 
 class AplacaModel(BaseModel):
     class Meta:
-        client: tradeapi.REST = None
+        trade_client: tradeapi.REST = None
+        data_client: tradeapi.REST = None
 
     @property
     def client(self) -> tradeapi.REST:
-        c = self.Meta.client is not None
+        c = self.Meta.trade_client is not None
         assert c is not None
         return c
+
+    @classmethod
+    def register(cls, key_id : str, secret_key : str, trade_url : URL, data_url : URL):
+        cls.Meta.trade_client = tradeapi.REST(key_id=key_id, secret_key=secret_key, base_url=trade_url)
+        cls.Meta.data_client = tradeapi.REST(key_id=key_id, secret_key=secret_key, base_url=data_url)
 
 
 class OrderBase(AplacaModel):

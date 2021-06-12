@@ -11,8 +11,6 @@ import websockets
 
 from alpaca_trade_api.models import rest_models as arm
 from alpaca_trade_api.models import stream_models as asm
-from polygon.websocket import stream_models as psm
-from . import polygon
 from .common import get_base_url, get_data_url, get_credentials, URL
 
 
@@ -205,22 +203,11 @@ class StreamConn(object):
                                       self._secret_key,
                                       self._base_url)
 
-        if self._data_stream == 'polygon':
-            # DATA_PROXY_WS is used for the alpaca-proxy-agent.
-            # this is how we set the polygon ws to go through the proxy agent
-            endpoint = os.environ.get("DATA_PROXY_WS", '')
-            if endpoint:
-                os.environ['POLYGON_WS_URL'] = endpoint
-            self.data_ws = polygon.StreamConn(
-                self._key_id + '-staging' if 'staging' in self._base_url else
-                self._key_id)
-            self._data_prefixes = (('Q.', 'T.', 'A.', 'AM.'))
-        else:
-            self.data_ws = _StreamConn(self._key_id,
-                                       self._secret_key,
-                                       self._data_url)
-            self._data_prefixes = (
-                ('Q.', 'T.', 'AM.', 'alpacadatav1/'))
+        self.data_ws = _StreamConn(self._key_id,
+                                   self._secret_key,
+                                   self._data_url)
+        self._data_prefixes = (
+            ('Q.', 'T.', 'AM.', 'alpacadatav1/'))
 
         self._handlers = {}
         self._handler_symbols = {}

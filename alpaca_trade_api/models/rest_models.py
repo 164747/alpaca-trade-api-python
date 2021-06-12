@@ -116,7 +116,7 @@ class Order(OrderPlace):
     @classmethod
     async def place_order(cls: Order, order_place: OrderPlace) -> Order:
         data = json.loads(order_place.json(exclude_none=True, by_alias=True))
-        d = await cls.Meta.client.post('/orders', data=data)
+        d = await cls.Meta.trade_client.post('/orders', data=data)
         order = Order(**d)
         order._pending_place = True
         return order
@@ -127,7 +127,7 @@ class Order(OrderPlace):
         try:
             self._change_request = order_replace
             self._pending_replace = True
-            d = await self.Meta.client.patch(f'/orders/{self.order_id}', data=data)
+            d = await self.Meta.trade_client.patch(f'/orders/{self.order_id}', data=data)
             self._replacing_order = Order(**d)
         except APIError as e:
             capture_exception(e)
@@ -141,11 +141,11 @@ class Order(OrderPlace):
     async def delete(self):
         self._pending_delete = True
         self._delete_req_at = datetime.datetime.now(tz=pytz.UTC)
-        await self.Meta.client.delete(f'/orders/{self.order_id}')
+        await self.Meta.trade_client.delete(f'/orders/{self.order_id}')
 
     @staticmethod
     async def delete_all():
-        await Order.Meta.client.delete('/orders')
+        await Order.Meta.trade_client.delete('/orders')
 
     @property
     def pending_action(self) -> bool:
@@ -171,7 +171,7 @@ class Order(OrderPlace):
             nested: bool = None) -> typing.List[Order]:
         params = locals()
         params.pop('cls')
-        return [Order(**x) for x in await Order.Meta.client.get('/orders', params)]
+        return [Order(**x) for x in await Order.Meta.trade_client.get('/orders', params)]
 
     @property
     def net_qty(self) -> int:
@@ -217,7 +217,7 @@ class Account(aux.AplacaModel):
 
     @classmethod
     async def get(cls: Account) -> Account:
-        return Account(** await Account.Meta.client.get('/account'))
+        return Account(** await Account.Meta.trade_client.get('/account'))
 
 
 class Position(aux.AplacaModel):
@@ -240,7 +240,7 @@ class Position(aux.AplacaModel):
 
     @classmethod
     async def get(cls: Position) -> typing.List[Position]:
-        dl = await cls.Meta.client.get('/positions')
+        dl = await cls.Meta.trade_client.get('/positions')
         return [Position(**x) for x in dl]
 
     @property
@@ -273,7 +273,7 @@ class Activity(aux.AplacaModel):
             d['page_size'] = min(page_size_left, 100)
             if not first:
                 d['page_token'] = dl[-1]['id']
-            tmp = await Activity.Meta.client.get(url, d)
+            tmp = await Activity.Meta.trade_client.get(url, data=d)
             dl.extend(tmp)
             page_size_left -= len(tmp)
             first = False
@@ -318,7 +318,7 @@ class MarketClock(aux.AplacaModel):
 
     @classmethod
     async def get(cls: MarketClock) -> MarketClock:
-        return MarketClock(** await cls.Meta.client.get('/clock'))
+        return MarketClock(** await cls.Meta.trade_client.get('/clock'))
 
     @property
     def opens_in(self) -> datetime.timedelta:

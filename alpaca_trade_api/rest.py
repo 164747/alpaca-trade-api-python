@@ -5,7 +5,6 @@ import os
 
 import aiohttp
 
-from . import polygon
 from .common import (
     get_base_url,
     get_credentials,
@@ -56,8 +55,6 @@ class REST(object):
         self._retry_wait = int(os.environ.get('APCA_RETRY_WAIT', 3))
         self._retry_codes = [int(o) for o in os.environ.get(
             'APCA_RETRY_CODES', '429,504').split(',')]
-        self.polygon = polygon.REST(
-            self._key_id, 'staging' in self._base_url)
 
     async def _request(self,
                        method,
@@ -131,11 +128,11 @@ class REST(object):
             return await resp.json()
         return None
 
-    async def get(self, path, data: dict = None):
+    async def get(self, path, api_version : str=None, data: dict = None):
         d = data
         if data is not None:
             d = {k: v for k, v in data.items() if v is not None}
-        return await self._request('GET', path, d)
+        return await self._request('GET', path, d, api_version=api_version)
 
     async def post(self, path, data=None):
         return await self._request('POST', path, data)

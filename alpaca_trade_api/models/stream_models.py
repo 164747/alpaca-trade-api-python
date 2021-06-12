@@ -7,7 +7,6 @@ from enum import Enum
 from pydantic import BaseModel, Field
 
 from alpaca_trade_api.models.rest_models import Order
-from polygon.rest import rest_models as prm
 
 
 
